@@ -1,216 +1,338 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Keyboard from './Keyboard.jsx';
+import './App.css';
 
-// Definisikan styles di sini agar JSX lebih bersih
-const styles = {
-  container: {
-    fontFamily: 'Arial, sans-serif',
-    width: '90%',
-    maxWidth: '800px',
-    margin: '20px auto',
-    padding: '20px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-  },
-  header: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '20px',
-    borderBottom: '2px solid #eee',
-    paddingBottom: '10px',
-  },
-  inputDisplay: {
-    width: '100%',
-    boxSizing: 'border-box', // Pastikan padding tidak menambah lebar
-    padding: '12px',
-    fontSize: '18px',
-    marginBottom: '15px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    fontFamily: 'monospace',
-  },
-  keyboard: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))',
-    gap: '5px',
-    marginBottom: '20px',
-  },
-  key: {
-    padding: '10px',
-    fontSize: '16px',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    textAlign: 'center',
-    backgroundColor: '#f9f9f9',
-  },
-  keySymbol: {
-    backgroundColor: '#e0e0e0',
-    fontWeight: 'bold',
-  },
-  buttonContainer: {
-    display: 'flex',
-    gap: '10px',
-  },
-  button: {
-    padding: '10px 15px',
-    fontSize: '16px',
-    cursor: 'pointer',
-    border: 'none',
-    borderRadius: '4px',
-    color: 'white',
-  },
-  tableContainer: {
-    marginTop: '20px',
-    overflowX: 'auto',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-  },
-  th: {
-    border: '1px solid #ddd',
-    padding: '8px',
-    backgroundColor: '#f2f2f2',
-    textAlign: 'center',
-  },
-  td: {
-    border: '1px solid #ddd',
-    padding: '8px',
-    textAlign: 'center',
-  },
+// --- LOGIKA UTAMA EVALUATOR ---
+
+const PRECEDENCE = {
+  '!': 4, '&': 3, '⊕': 2, '|': 2, '→': 1, '↔': 1, '(': 0,
 };
 
+function getVariables(expression) {
+  const variables = expression.match(/[a-z]/g) || [];
+  return [...new Set(variables)].sort();
+}
+
+function parseToRPN(expression) {
+  const outputQueue = [];
+  const operatorStack = [];
+  const tokens = expression
+    .replace(/↔/g, 'B').replace(/→/g, 'I').replace(/⊕/g, 'X')
+    .replace(/\s/g, '').split('') 
+    .map(t => t === 'B' ? '↔' : (t === 'I' ? '→' : (t === 'X' ? '⊕' : t)));
+  for (const token of tokens) {
+    if (/[a-z]/.test(token)) {
+      outputQueue.push(token);
+    } else if (PRECEDENCE[token] !== undefined) {
+      while (operatorStack.length > 0 && PRECEDENCE[operatorStack[operatorStack.length - 1]] >= PRECEDENCE[token]) {
+        outputQueue.push(operatorStack.pop());
+      }
+      operatorStack.push(token);
+    } else if (token === '(') {
+      operatorStack.push(token);
+    } else if (token === ')') {
+      while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] !== '(') {
+        outputQueue.push(operatorStack.pop());
+      }
+      operatorStack.pop();
+    }
+  }
+  while (operatorStack.length > 0) {
+    outputQueue.push(operatorStack.pop());
+  }
+  return outputQueue;
+}
+
+function evaluateRPN(rpnQueue, values) {
+  const stack = [];
+  for (const token of rpnQueue) {
+    if (/[a-z]/.test(token)) {
+      stack.push(values[token]);
+    } else {
+      if (token === '!') { const a = stack.pop(); stack.push(!a); }
+      else {
+        const b = stack.pop(); const a = stack.pop();
+        if (token === '&') stack.push(a && b);
+        else if (token === '|') stack.push(a || b); 
+        else if (token === '⊕') stack.push((a && !b) || (!a && b));
+        else if (token === '→') stack.push(!a || b);
+        else if (token === '↔') stack.push((a && b) || (!a && !b));
+      }
+    }
+  }
+  return stack[0];
+}
+
+function generatePermutations(variables) {
+  const n = variables.length;
+  const rowCount = Math.pow(2, n);
+  const rows = [];
+  for (let i = 0; i < rowCount; i++) {
+    const row = {};
+    const binary = i.toString(2).padStart(n, '0');
+    for (let j = 0; j < n; j++) {
+      row[variables[j]] = binary[j] === '1'; 
+    }
+    rows.push(row);
+  }
+  return rows; // FFF di atas
+}
+
+// --- KOMPONEN REACT ---
+
 function App() {
-  const [expression, setExpression] = useState('');
+  const [variableCount, setVariableCount] = useState(2);
+  const [expressionsList, setExpressionsList] = useState([]); 
+  const [currentExpression, setCurrentExpression] = useState(''); 
+  
   const [tableData, setTableData] = useState(null);
+  const [error, setError] = useState('');
+  const [showResultsPage, setShowResultsPage] = useState(false); 
 
-  // Kunci keyboard
-  const variables = ['p', 'q', 'r', 's', 't', 'u'];
-  const symbols = ['&', '|', '!', '(', ')', '→', '↔'];
-
-  const handleKeyClick = (key) => {
-    setExpression((prev) => prev + key);
+  const keyLegend = {
+    '&': 'AND (Konjungsi)',
+    'V': 'OR (Disjungsi / Atau)',
+    '¬': 'NOT (Negasi / Bukan)',
+    '⊕': 'XOR (Exclusive OR)',
+    '→': 'IMPLIES (Implikasi / Jika-Maka)',
+    '↔': 'Biiimplikasi (IFF / Jika dan Hanya Jika)',
+    '( )': 'Grouping (Kurung)',
   };
 
-  const handleClear = () => {
-    setExpression('');
+  useEffect(() => {
+    setExpressionsList([]);
+    setCurrentExpression('');
     setTableData(null);
+    setError('');
+    setShowResultsPage(false); 
+  }, [variableCount]);
+  
+  const handleKeyClick = (key) => {
+    setCurrentExpression((prev) => prev + key);
+  };
+  
+  const handleAddExpression = () => {
+    if (currentExpression.trim() === '') return;
+    setExpressionsList([...expressionsList, currentExpression]);
+    setCurrentExpression(''); 
+  };
+
+  const handleRemoveExpression = (indexToRemove) => {
+    setExpressionsList(expressionsList.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleClearAll = () => {
+    setVariableCount(2);
+    setExpressionsList([]);
+    setCurrentExpression('');
+    setTableData(null);
+    setError('');
+    setShowResultsPage(false); 
   };
 
   const handleGenerate = () => {
-    // --- STUB LOGIC ---
-    // Logika parser ekspresi dan generator tabel yang sesungguhnya sangat kompleks.
-    // Untuk demo ini, kita hanya akan menangani kasus sederhana "p & q" dan "p | q".
+    try {
+      setError('');
+      if (expressionsList.length === 0) {
+        throw new Error("Tidak ada perhitungan. Silakan 'Tambah Perhitungan' terlebih dahulu.");
+      }
 
-    let data = {
-      headers: [],
-      rows: [],
-    };
+      const allVars = ['p', 'q', 'r', 's', 't'];
+      const baseVariables = allVars.slice(0, variableCount); 
 
-    const cleanExpression = expression.trim();
+      const processedExpressions = expressionsList.map(expr => 
+        expr.replace(/V/g, '|')  
+            .replace(/¬/g, '!')   
+      );
+      
+      processedExpressions.forEach((expr, i) => {
+        const varsInExpr = getVariables(expr); 
+        for (const v of varsInExpr) {
+          if (!baseVariables.includes(v)) {
+            throw new Error(`Ekspresi "${expressionsList[i]}" memakai variabel '${v}'. Pilih jumlah variabel ${variableCount} hanya mengizinkan: ${baseVariables.join(', ')}.`);
+          }
+        }
+      });
 
-    if (cleanExpression === 'p & q') {
-      data.headers = ['p', 'q', 'p & q'];
-      data.rows = [
-        ['T', 'T', 'T'],
-        ['T', 'F', 'F'],
-        ['F', 'T', 'F'],
-        ['F', 'F', 'F'],
-      ];
-    } else if (cleanExpression === 'p | q') {
-      data.headers = ['p', 'q', 'p | q'];
-      data.rows = [
-        ['T', 'T', 'T'],
-        ['T', 'F', 'T'],
-        ['F', 'T', 'T'],
-        ['F', 'F', 'F'],
-      ];
-    } else if (cleanExpression === '!p') {
-      data.headers = ['p', '!p'];
-      data.rows = [
-        ['T', 'F'],
-        ['F', 'T'],
-      ];
-    } else {
-      alert(`Ekspresi "${cleanExpression}" belum didukung oleh generator minimal ini.`);
-      return;
+      const rpns = processedExpressions.map(expr => parseToRPN(expr));
+      const permutations = generatePermutations(baseVariables);
+      
+      const headers = [...baseVariables, ...expressionsList];
+      const rows = []; 
+
+      for (const perm of permutations) {
+        const rowData = baseVariables.map(v => (perm[v] ? 'T' : 'F')); 
+        for (const rpn of rpns) {
+          const result = evaluateRPN([...rpn], perm);
+          rowData.push(result ? 'T' : 'F'); 
+        }
+        rows.push(rowData); 
+      }
+
+      setTableData({ headers, rows }); 
+      setShowResultsPage(true); 
+
+    } catch (e) {
+      console.error(e);
+      setError(`Error: ${e.message}`);
+      setTableData(null); 
+      setShowResultsPage(false); 
     }
-
-    setTableData(data);
   };
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.header}>Dashboard Kalkulator Logika</div>
-
-      <input
-        type="text"
-        style={styles.inputDisplay}
-        value={expression}
-        readOnly // Input hanya melalui keyboard virtual
-        placeholder="Gunakan keyboard di bawah untuk memasukkan ekspresi..."
-      />
-
-      <div style={styles.keyboard}>
-        {variables.map((v) => (
-          <button
-            key={v}
-            style={styles.key}
-            onClick={() => handleKeyClick(v)}
-          >
-            {v}
-          </button>
-        ))}
-        {symbols.map((s) => (
-          <button
-            key={s}
-            style={{ ...styles.key, ...styles.keySymbol }}
-            onClick={() => handleKeyClick(s)}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-
-      <div style={styles.buttonContainer}>
-        <button
-          style={{ ...styles.button, backgroundColor: '#28a745' }}
-          onClick={handleGenerate}
+  if (showResultsPage && tableData) {
+    return (
+      <div className="app-container">
+        <div className="app-header">Hasil Tabel Kebenaran</div>
+        
+        <button 
+          className="button back-to-input" 
+          onClick={() => setShowResultsPage(false)} 
         >
-          Generate Table
+          &larr; Kembali ke Input
         </button>
-        <button
-          style={{ ...styles.button, backgroundColor: '#dc3545' }}
-          onClick={handleClear}
-        >
-          Clear
-        </button>
-      </div>
 
-      {/* Area Output Tabel */}
-      {tableData && (
-        <div style={styles.tableContainer}>
-          <table style={styles.table}>
+        <div className="table-container result-table-full">
+          <h3>Tabel Kebenaran Lengkap:</h3>
+          <table className="results-table">
             <thead>
-              <tr>
-                {tableData.headers.map((h) => (
-                  <th key={h} style={styles.th}>{h}</th>
-                ))}
-              </tr>
+              <tr>{tableData.headers.map((h, i) => (<th key={i}>{h}</th>))}</tr>
             </thead>
             <tbody>
               {tableData.rows.map((row, rowIndex) => (
                 <tr key={rowIndex}>
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} style={styles.td}>{cell}</td>
+                    <td key={cellIndex}>{cell}</td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+
+        <footer className="app-footer">
+          Tools ini dibuat oleh <a href="https://github.com/prastianhdd/" target="_blank" rel="noopener noreferrer">PrastianHD</a>
+        </footer>
+
+        {error && ( <div className="error-message">{error}</div> )} 
+
+      </div>
+    );
+  }
+
+  // --- RENDER HALAMAN INPUT (DEFAULT) ---
+  return (
+    <div className="app-container">
+      <div className="app-header">Tabel Kebenaran Logika Informatika</div>
+
+      {/* --- MENU INPUT 1 --- */}
+      <div className="form-section">
+        <label htmlFor="var-select">1. Pilih Jumlah Variabel</label>
+        <select 
+          id="var-select" 
+          className="variable-select"
+          value={variableCount} 
+          onChange={(e) => setVariableCount(Number(e.target.value))}
+        >
+          <option value={1}>1 (p)</option>
+          <option value={2}>2 (p, q)</option>
+          <option value={3}>3 (p, q, r)</option>
+          <option value={4}>4 (p, q, r, s)</option>
+          <option value={5}>5 (p, q, r, s, t)</option>
+        </select>
+      </div>
+
+      <div className="form-section">
+        <label htmlFor="expr-input">2. Masukkan Perhitungan </label>
+        <input
+          type="text"
+          id="expr-input"
+          className="input-display"
+          value={currentExpression}
+          onChange={(e) => setCurrentExpression(e.target.value)}
+          placeholder="Ketik ekspresi (cth: p & (q V ¬r))"
+        />
+        <Keyboard onKeyClick={handleKeyClick} />
+        <button 
+          className="button add-expression" 
+          onClick={handleAddExpression}
+        >
+          Tambah Perhitungan
+        </button>
+      </div>
+
+      <div className="expression-list">
+        <h3>Daftar Perhitungan </h3>
+        {expressionsList.length === 0 ? (
+          <p>Belum ada operator yang ditambahkan.</p>
+        ) : (
+          <ul className="expression-list-ul">
+            {expressionsList.map((expr, index) => (
+              <li key={index}>
+                <span>{expr}</span>
+                <button 
+                  className="remove-button" 
+                  onClick={() => handleRemoveExpression(index)}
+                >
+                  Hapus
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="button-container main-controls">
+        <button className="button generate" onClick={handleGenerate}>
+          Generate Table
+        </button>
+        <button className="button clear" onClick={handleClearAll}>
+          Clear All
+        </button>
+      </div>
+      
+      <div className="legend">
+        <div className="legend-title">Keterangan Keyboard :</div>
+        {Object.entries(keyLegend).map(([key, desc]) => (
+          <div key={key} className="legend-item">
+            <strong>{key}</strong> = {desc}
+          </div>
+        ))}
+      </div>
+      
+      {error && ( <div className="error-message">{error}</div> )}
+
+      <div className="table-container base-permutation-table">
+          <h3>Contoh Permutasi Dasar (Variabel):</h3>
+          {(() => {
+            const allVars = ['p', 'q', 'r', 's', 't'];
+            const currentBaseVariables = allVars.slice(0, variableCount);
+            const basePermutations = generatePermutations(currentBaseVariables);
+            const baseRows = basePermutations.map(perm => 
+              currentBaseVariables.map(v => (perm[v] ? 'T' : 'F'))
+            );
+
+            return (
+              <table className="results-table">
+                <thead>
+                  <tr>{currentBaseVariables.map((h, i) => (<th key={i}>{h}</th>))}</tr>
+                </thead>
+                <tbody>
+                  {baseRows.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex}>{cell}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            );
+          })()}
+        </div>
+      <footer className="app-footer">
+        Tools ini dibuat oleh <a href="https://github.com/prastianhdd/" target="_blank" rel="noopener noreferrer">PrastianHD</a>
+      </footer> 
     </div>
   );
 }

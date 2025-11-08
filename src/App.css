@@ -1,42 +1,311 @@
-#root {
-  max-width: 1280px;
+/* src/App.css */
+
+/* --- 1. Pengaturan Global & Latar Belakang --- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f7f9fc; /* Latar belakang off-white modern */
+  color: #333;
+  margin: 0;
+  padding: 20px 10px; /* Padding lebih kecil untuk mobile first */
+  -webkit-font-smoothing: antialiased; /* Teks lebih halus */
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* --- 2. Kartu Kontainer Utama --- */
+.app-container {
+  width: 100%;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 24px; /* Padding lebih kecil untuk mobile */
+  background-color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box; /* Pastikan padding tidak merusak layout */
+}
+
+.app-header {
+  font-size: 24px; /* Ukuran font lebih kecil untuk mobile */
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 16px;
+}
+
+/* --- 3. Styling Form (Input & Select) --- */
+.form-section {
+  margin-bottom: 25px;
+}
+
+.form-section label {
+  display: block;
+  font-weight: 600;
+  font-size: 1.05em; /* Sedikit lebih kecil */
+  color: #444;
+  margin-bottom: 12px;
+}
+
+.variable-select,
+.input-display {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 15px;
+  font-size: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  border: 1px solid #d0d7e0;
+  border-radius: 8px;
+  background-color: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  -webkit-appearance: none; /* Hapus style bawaan iOS */
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Panah dropdown kustom untuk <select> */
+.variable-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 16px 12px;
+  padding-right: 2.5rem; /* Beri ruang untuk panah */
+}
+
+.variable-select:focus,
+.input-display:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+  outline: none;
+}
+
+/* --- 4. Styling Tombol (Base & Varian) --- */
+.button {
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
   text-align: center;
+  width: 100%; /* Tombol full-width di mobile */
+  box-sizing: border-box;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.button:hover {
+  transform: translateY(-1px);
+  opacity: 0.9;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.button.add-expression {
+  background-color: #007bff;
+  color: white;
+}
+
+.button.generate {
+  background-color: #28a745;
+  color: white;
+}
+
+.button.clear {
+  background-color: #dc3545;
+  color: white;
+}
+
+.button.back-to-input {
+  background-color: #6c757d;
+  color: white;
+  margin-bottom: 20px;
+  width: auto; /* Tombol 'kembali' tidak perlu full-width */
+  display: inline-block;
+}
+
+/* --- 5. Daftar Ekspresi --- */
+.expression-list {
+  margin-top: 20px;
+}
+
+.expression-list h3 {
+  margin-top: 0;
+  font-weight: 600;
+  color: #444;
+}
+
+.expression-list-ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.expression-list-ul li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background-color: #f7f9fc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 1.05em; /* Ukuran font disesuaikan */
+}
+
+.remove-button {
+  background-color: #fbebee;
+  color: #dc3545;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.remove-button:hover {
+  background-color: #f8d7da;
+}
+
+/* --- 6. Legenda & Error --- */
+.legend {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f7f9fc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.legend-title {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.legend-item {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 0.95em;
+  margin-bottom: 5px;
+  display: flex; /* Untuk perataan yang lebih baik */
+  align-items: center;
+}
+.legend-item strong {
+  color: #007bff;
+  display: inline-block;
+  min-width: 25px; /* Lebar minimum untuk simbol */
+  text-align: center;
+  margin-right: 8px; /* Jarak simbol ke teks */
+}
+
+.error-message {
+  color: #c82333;
+  background-color: #fbebee;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin-top: 20px;
+  font-weight: 500;
+}
+
+/* --- 7. Tombol Kontrol Utama & Tabel --- */
+.main-controls {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column; /* Tombol bertumpuk di mobile */
+  gap: 12px;
+}
+
+.table-container {
+  margin-top: 20px;
+  width: 100%;
+  overflow-x: auto; /* Ini adalah kunci untuk tabel di mobile */
+  -webkit-overflow-scrolling: touch; /* Scrolling halus di iOS */
+}
+
+.table-container h3 {
+  font-weight: 600;
+  color: #28a745;
+}
+
+.results-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 600px; /* Paksa tabel agar bisa di-scroll jika layar terlalu kecil */
+}
+
+.results-table th,
+.results-table td {
+  border: none;
+  padding: 12px 15px;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.results-table th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: #334155;
+}
+
+.results-table td {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+
+.results-table tbody tr:nth-child(even) {
+  background-color: #fcfcfc;
+}
+
+.results-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --- 8. Media Query untuk Desktop (Layar Lebih Besar) --- */
+@media (min-width: 768px) {
+  body {
+    padding: 40px 20px; /* Kembalikan padding desktop */
   }
-  to {
-    transform: rotate(360deg);
+
+  .app-container {
+    padding: 40px; /* Padding lebih lega di desktop */
+  }
+
+  .app-header {
+    font-size: 28px; /* Font header lebih besar */
+  }
+
+  /* Buat tombol generate/clear berdampingan lagi */
+  .main-controls {
+    flex-direction: row; /* Berdampingan */
+  }
+
+  .button.generate,
+  .button.clear {
+    width: auto; /* Ukuran tombol otomatis */
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* ... (Semua CSS Anda sebelumnya) ... */
+
+/* --- 9. Styling Footer --- */
+.app-footer {
+  text-align: center;
+  margin-top: 40px; /* Jarak dari konten di atasnya */
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0; /* Garis pemisah tipis */
+  font-size: 1.1em;
+  color: #888; /* Warna abu-abu muted */
 }
 
-.card {
-  padding: 2em;
+.app-footer a {
+  color: #28a745; /* Warna link sedikit lebih gelap */
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
-.read-the-docs {
-  color: #888;
+.app-footer a:hover {
+  color: #007bff; /* Warna biru profesional saat hover */
+  text-decoration: underline;
 }
