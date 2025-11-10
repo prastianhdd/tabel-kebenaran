@@ -193,7 +193,7 @@ function App() {
         </button>
 
         <div className="table-container result-table-full">
-          <h3>Tabel Kebenaran Lengkap:</h3>
+          <h3>Tabel Kebenaran Lengkap</h3>
           <table className="results-table">
             <thead>
               <tr>{tableData.headers.map((h, i) => (<th key={i}>{h}</th>))}</tr>
@@ -210,10 +210,6 @@ function App() {
           </table>
         </div>
 
-        <footer className="app-footer">
-          Tools ini dibuat oleh <a href="https://github.com/prastianhdd/" target="_blank" rel="noopener noreferrer">PrastianHD</a>
-        </footer>
-
         {error && ( <div className="error-message">{error}</div> )} 
 
       </div>
@@ -227,7 +223,7 @@ function App() {
 
       {/* --- MENU INPUT 1 --- */}
       <div className="form-section">
-        <label htmlFor="var-select">1. Pilih Jumlah Variabel</label>
+        <label htmlFor="var-select">Pilih Jumlah Variabel</label>
         <select 
           id="var-select" 
           className="variable-select"
@@ -243,7 +239,7 @@ function App() {
       </div>
 
       <div className="form-section">
-        <label htmlFor="expr-input">2. Masukkan Perhitungan </label>
+        <label htmlFor="expr-input">Masukkan Perhitungan </label>
         <input
           type="text"
           id="expr-input"
@@ -303,7 +299,7 @@ function App() {
       {error && ( <div className="error-message">{error}</div> )}
 
       <div className="table-container base-permutation-table">
-          <h3>Contoh Permutasi Dasar (Variabel):</h3>
+          <h3>Contoh Permutasi Dasar (Variabel)</h3>
           {(() => {
             const allVars = ['p', 'q', 'r', 's', 't'];
             const currentBaseVariables = allVars.slice(0, variableCount);
