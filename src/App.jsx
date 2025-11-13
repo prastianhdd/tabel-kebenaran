@@ -18,30 +18,50 @@ function parseToRPN(expression) {
   const operatorStack = [];
   const tokens = expression
     .replace(/↔/g, 'B').replace(/→/g, 'I').replace(/⊕/g, 'X')
-    .replace(/\s/g, '').split('') 
+    .replace(/\s/g, '').split('')
     .map(t => t === 'B' ? '↔' : (t === 'I' ? '→' : (t === 'X' ? '⊕' : t)));
+
   for (const token of tokens) {
     if (/[a-z]/.test(token)) {
       outputQueue.push(token);
-    } else if (PRECEDENCE[token] !== undefined) {
-      while (operatorStack.length > 0 && PRECEDENCE[operatorStack[operatorStack.length - 1]] >= PRECEDENCE[token]) {
-        outputQueue.push(operatorStack.pop());
-      }
-      operatorStack.push(token);
     } else if (token === '(') {
       operatorStack.push(token);
     } else if (token === ')') {
       while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] !== '(') {
         outputQueue.push(operatorStack.pop());
       }
-      operatorStack.pop();
+      if (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] === '(') {
+        operatorStack.pop();
+      }
+    } else if (PRECEDENCE[token] !== undefined) {
+      while (operatorStack.length > 0) {
+        const top = operatorStack[operatorStack.length - 1];
+        if (top === '(') break;
+        if (token === '!') {
+          if (PRECEDENCE[top] > PRECEDENCE[token]) {
+            outputQueue.push(operatorStack.pop());
+            continue;
+          }
+        } else {
+          if (PRECEDENCE[top] >= PRECEDENCE[token]) {
+            outputQueue.push(operatorStack.pop());
+            continue;
+          }
+        }
+        break;
+      }
+      operatorStack.push(token);
+    } else {
+
     }
   }
+
   while (operatorStack.length > 0) {
     outputQueue.push(operatorStack.pop());
   }
   return outputQueue;
 }
+
 
 function evaluateRPN(rpnQueue, values) {
   const stack = [];
