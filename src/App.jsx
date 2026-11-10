@@ -1,354 +1,224 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Keyboard from './Keyboard.jsx';
+import { buildTruthTable, normalizeExpression, validateExpression, VARIABLES } from './truthTable.js';
 import './App.css';
 
-// --- LOGIKA UTAMA EVALUATOR ---
+const OPERATORS = [
+  ['¬', 'Negasi', 'Bukan p'], ['&', 'Konjungsi', 'p dan q'],
+  ['∨', 'Disjungsi', 'p atau q'], ['⊕', 'Disjungsi eksklusif', 'Hanya salah satu benar'],
+  ['→', 'Implikasi', 'Jika p, maka q'], ['↔', 'Biimplikasi', 'p jika dan hanya jika q'],
+];
 
-const PRECEDENCE = {
-  '!': 4, '&': 3, '⊕': 2, '|': 2, '→': 1, '↔': 1, '(': 0,
-};
-
-function getVariables(expression) {
-  const variables = expression.match(/[a-z]/g) || [];
-  return [...new Set(variables)].sort();
+function Icon({ name, size = 20 }) {
+  const paths = {
+    arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
+    plus: <path d="M12 5v14M5 12h14" />,
+    close: <path d="m6 6 12 12M6 18 18 6" />,
+    help: <><circle cx="12" cy="12" r="9" /><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 16h.01" /></>,
+    download: <path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" />,
+    reset: <><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6" /></>,
+    grid: <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M3 9h18M9 9v12M15 9v12M3 15h18" /></>,
+    check: <path d="m5 12 4 4L19 6" />,
+  };
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
-
-function parseToRPN(expression) {
-  const outputQueue = [];
-  const operatorStack = [];
-  const tokens = expression
-    .replace(/↔/g, 'B').replace(/→/g, 'I').replace(/⊕/g, 'X')
-    .replace(/\s/g, '').split('')
-    .map(t => t === 'B' ? '↔' : (t === 'I' ? '→' : (t === 'X' ? '⊕' : t)));
-
-  for (const token of tokens) {
-    if (/[a-z]/.test(token)) {
-      outputQueue.push(token);
-    } else if (token === '(') {
-      operatorStack.push(token);
-    } else if (token === ')') {
-      while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] !== '(') {
-        outputQueue.push(operatorStack.pop());
-      }
-      if (operatorStack.length > 0 && operatorStack[operatorStack.length - 1] === '(') {
-        operatorStack.pop();
-      }
-    } else if (PRECEDENCE[token] !== undefined) {
-      while (operatorStack.length > 0) {
-        const top = operatorStack[operatorStack.length - 1];
-        if (top === '(') break;
-        if (token === '!') {
-          if (PRECEDENCE[top] > PRECEDENCE[token]) {
-            outputQueue.push(operatorStack.pop());
-            continue;
-          }
-        } else {
-          if (PRECEDENCE[top] >= PRECEDENCE[token]) {
-            outputQueue.push(operatorStack.pop());
-            continue;
-          }
-        }
-        break;
-      }
-      operatorStack.push(token);
-    } else {
-
-    }
-  }
-
-  while (operatorStack.length > 0) {
-    outputQueue.push(operatorStack.pop());
-  }
-  return outputQueue;
-}
-
-
-function evaluateRPN(rpnQueue, values) {
-  const stack = [];
-  for (const token of rpnQueue) {
-    if (/[a-z]/.test(token)) {
-      stack.push(values[token]);
-    } else {
-      if (token === '!') { const a = stack.pop(); stack.push(!a); }
-      else {
-        const b = stack.pop(); const a = stack.pop();
-        if (token === '&') stack.push(a && b);
-        else if (token === '|') stack.push(a || b); 
-        else if (token === '⊕') stack.push((a && !b) || (!a && b));
-        else if (token === '→') stack.push(!a || b);
-        else if (token === '↔') stack.push((a && b) || (!a && !b));
-      }
-    }
-  }
-  return stack[0];
-}
-
-function generatePermutations(variables) {
-  const n = variables.length;
-  const rowCount = Math.pow(2, n);
-  const rows = [];
-  for (let i = 0; i < rowCount; i++) {
-    const row = {};
-    const binary = i.toString(2).padStart(n, '0');
-    for (let j = 0; j < n; j++) {
-      row[variables[j]] = binary[j] === '1'; 
-    }
-    rows.push(row);
-  }
-  return rows; // FFF di atas
-}
-
-// --- KOMPONEN REACT ---
 
 function App() {
   const [variableCount, setVariableCount] = useState(2);
-  const [expressionsList, setExpressionsList] = useState([]); 
-  const [currentExpression, setCurrentExpression] = useState(''); 
-  
-  const [tableData, setTableData] = useState(null);
+  const [expressions, setExpressions] = useState([]);
+  const [draft, setDraft] = useState('');
+  const [table, setTable] = useState(null);
+  const [activeTab, setActiveTab] = useState('editor');
   const [error, setError] = useState('');
-  const [showResultsPage, setShowResultsPage] = useState(false); 
-
-  const keyLegend = {
-    '&': 'AND (Konjungsi)',
-    'V': 'OR (Disjungsi / Atau)',
-    '¬': 'NOT (Negasi / Bukan)',
-    '⊕': 'XOR (Exclusive OR)',
-    '→': 'IMPLIES (Implikasi / Jika-Maka)',
-    '↔': 'Biiimplikasi (IFF / Jika dan Hanya Jika)',
-    '( )': 'Grouping (Kurung)',
-  };
+  const [notice, setNotice] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
+  const inputRef = useRef(null);
+  const dialogRef = useRef(null);
+  const resultHeadingRef = useRef(null);
+  const variables = VARIABLES.slice(0, variableCount);
 
   useEffect(() => {
-    setExpressionsList([]);
-    setCurrentExpression('');
-    setTableData(null);
+    if (showHelp) dialogRef.current.showModal();
+    else dialogRef.current.close();
+  }, [showHelp]);
+
+  useEffect(() => {
+    if (activeTab === 'results') resultHeadingRef.current?.focus();
+  }, [activeTab]);
+
+  function invalidate() {
+    setTable(null);
     setError('');
-    setShowResultsPage(false); 
-  }, [variableCount]);
-  
-  const handleKeyClick = (key) => {
-    setCurrentExpression((prev) => prev + key);
-  };
-  
-  const handleAddExpression = () => {
-    if (currentExpression.trim() === '') return;
-    setExpressionsList([...expressionsList, currentExpression]);
-    setCurrentExpression(''); 
-  };
-
-  const handleRemoveExpression = (indexToRemove) => {
-    setExpressionsList(expressionsList.filter((_, index) => index !== indexToRemove));
-  };
-
-  const handleClearAll = () => {
-    setVariableCount(2);
-    setExpressionsList([]);
-    setCurrentExpression('');
-    setTableData(null);
-    setError('');
-    setShowResultsPage(false); 
-  };
-
-  const handleGenerate = () => {
-    try {
-      setError('');
-      if (expressionsList.length === 0) {
-        throw new Error("Tidak ada perhitungan. Silakan 'Tambah Perhitungan' terlebih dahulu.");
-      }
-
-      const allVars = ['p', 'q', 'r', 's', 't'];
-      const baseVariables = allVars.slice(0, variableCount); 
-
-      const processedExpressions = expressionsList.map(expr => 
-        expr.replace(/V/g, '|')  
-            .replace(/¬/g, '!')   
-      );
-      
-      processedExpressions.forEach((expr, i) => {
-        const varsInExpr = getVariables(expr); 
-        for (const v of varsInExpr) {
-          if (!baseVariables.includes(v)) {
-            throw new Error(`Ekspresi "${expressionsList[i]}" memakai variabel '${v}'. Pilih jumlah variabel ${variableCount} hanya mengizinkan: ${baseVariables.join(', ')}.`);
-          }
-        }
-      });
-
-      const rpns = processedExpressions.map(expr => parseToRPN(expr));
-      const permutations = generatePermutations(baseVariables);
-      
-      const headers = [...baseVariables, ...expressionsList];
-      const rows = []; 
-
-      for (const perm of permutations) {
-        const rowData = baseVariables.map(v => (perm[v] ? 'T' : 'F')); 
-        for (const rpn of rpns) {
-          const result = evaluateRPN([...rpn], perm);
-          rowData.push(result ? 'T' : 'F'); 
-        }
-        rows.push(rowData); 
-      }
-
-      setTableData({ headers, rows }); 
-      setShowResultsPage(true); 
-
-    } catch (e) {
-      console.error(e);
-      setError(`Error: ${e.message}`);
-      setTableData(null); 
-      setShowResultsPage(false); 
-    }
-  };
-
-  if (showResultsPage && tableData) {
-    return (
-      <div className="app-container">
-        <div className="app-header">Hasil Tabel Kebenaran</div>
-        
-        <button 
-          className="button back-to-input" 
-          onClick={() => setShowResultsPage(false)} 
-        >
-          &larr; Kembali ke Input
-        </button>
-
-        <div className="table-container result-table-full">
-          <h3>Tabel Kebenaran Lengkap</h3>
-          <table className="results-table">
-            <thead>
-              <tr>{tableData.headers.map((h, i) => (<th key={i}>{h}</th>))}</tr>
-            </thead>
-            <tbody>
-              {tableData.rows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
-                  {row.map((cell, cellIndex) => (
-                    <td key={cellIndex}>{cell}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {error && ( <div className="error-message">{error}</div> )} 
-
-      </div>
-    );
+    setNotice('');
   }
 
-  // --- RENDER HALAMAN INPUT (DEFAULT) ---
+  function updateDraft(value) {
+    setDraft(value);
+    invalidate();
+  }
+
+  function insertKey(key) {
+    const input = inputRef.current;
+    const start = input.selectionStart ?? draft.length;
+    const end = input.selectionEnd ?? start;
+    const from = key === 'Backspace' && start === end ? Math.max(0, start - 1) : start;
+    const text = key === 'Backspace' ? '' : key;
+    const value = draft.slice(0, from) + text + draft.slice(end);
+    if (value.length > 200) return;
+    updateDraft(value);
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(from + text.length, from + text.length);
+    });
+  }
+
+  function addExpression(event) {
+    event.preventDefault();
+    try {
+      validateExpression(draft, variableCount);
+      if (expressions.some(expression => normalizeExpression(expression) === normalizeExpression(draft))) {
+        throw new Error('Ekspresi ini sudah ada dalam daftar.');
+      }
+      setExpressions([...expressions, draft.trim()]);
+      setDraft('');
+      invalidate();
+      setNotice('Ekspresi ditambahkan. Tambah lagi atau buat tabel.');
+      inputRef.current.focus();
+    } catch (exception) {
+      setError(exception.message);
+      setNotice('');
+      inputRef.current.focus();
+    }
+  }
+
+  function generate() {
+    try {
+      const list = [...expressions];
+      if (draft.trim() && !list.some(expression => normalizeExpression(expression) === normalizeExpression(draft))) list.push(draft.trim());
+      const result = buildTruthTable(list, variableCount);
+      setExpressions(list);
+      setDraft('');
+      setTable(result);
+      setError('');
+      setNotice('');
+      setActiveTab('results');
+    } catch (exception) {
+      setError(exception.message);
+      setNotice('');
+      inputRef.current.focus();
+    }
+  }
+
+  function reset() {
+    if ((draft || expressions.length) && !window.confirm('Hapus semua ekspresi dan hasil tabel?')) return;
+    setDraft('');
+    setExpressions([]);
+    setVariableCount(2);
+    setActiveTab('editor');
+    invalidate();
+    setNotice('Workspace dikosongkan.');
+  }
+
+  function downloadCsv() {
+    const quote = value => `"${String(value).replace(/"/g, '""')}"`;
+    const content = [
+      [...table.variables, ...table.expressions].map(quote).join(','),
+      ...table.rows.map(row => row.map(value => value ? 'T' : 'F').join(',')),
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob(['﻿', content], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'tabel-kebenaran.csv';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
-    <div className="app-container">
-      <div className="app-header">Tabel Kebenaran Logika Informatika</div>
+    <div className="app-shell">
+      <a className="skip-link" href="#main-content">Lewati ke konten</a>
+      <header className="site-header">
+        <a className="brand" href="./" aria-label="Beranda Tabel Kebenaran">
+          <img className="brand-mark" src="/calculator.svg" alt="" width="42" height="42" />
+          <span>Tabel Kebenaran<span className="brand-caption">LOGIKA PROPOSISIONAL / DIGITAL</span></span>
+        </a>
+        <button className="button button-quiet help-button" onClick={() => setShowHelp(true)}><Icon name="help" /> Panduan</button>
+      </header>
 
-      {/* --- MENU INPUT 1 --- */}
-      <div className="form-section">
-        <label htmlFor="var-select">Pilih Jumlah Variabel</label>
-        <select 
-          id="var-select" 
-          className="variable-select"
-          value={variableCount} 
-          onChange={(e) => setVariableCount(Number(e.target.value))}
-        >
-          <option value={1}>1 (p)</option>
-          <option value={2}>2 (p, q)</option>
-          <option value={3}>3 (p, q, r)</option>
-          <option value={4}>4 (p, q, r, s)</option>
-          <option value={5}>5 (p, q, r, s, t)</option>
-        </select>
-      </div>
+      <main id="main-content" className="main-content">
+        <section className="page-intro" aria-labelledby="page-title">
+          <div className="eyebrow"><span className="eyebrow-line" /> LOGIKA DIGITAL</div>
+          <h1 id="page-title">Kalkulator <span>tabel kebenaran</span></h1>
+          <p>Evaluasi ekspresi Boolean. Periksa setiap kombinasi input dan output.</p>
+        </section>
 
-      <div className="form-section">
-        <label htmlFor="expr-input">Masukkan Perhitungan </label>
-        <input
-          type="text"
-          id="expr-input"
-          className="input-display"
-          value={currentExpression}
-          onChange={(e) => setCurrentExpression(e.target.value)}
-          placeholder="Ketik ekspresi (cth: p & (q V ¬r))"
-        />
-        <Keyboard onKeyClick={handleKeyClick} />
-        <button 
-          className="button add-expression" 
-          onClick={handleAddExpression}
-        >
-          Tambah Perhitungan
-        </button>
-      </div>
-
-      <div className="expression-list">
-        <h3>Daftar Perhitungan </h3>
-        {expressionsList.length === 0 ? (
-          <p>Belum ada operator yang ditambahkan.</p>
-        ) : (
-          <ul className="expression-list-ul">
-            {expressionsList.map((expr, index) => (
-              <li key={index}>
-                <span>{expr}</span>
-                <button 
-                  className="remove-button" 
-                  onClick={() => handleRemoveExpression(index)}
-                >
-                  Hapus
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="button-container main-controls">
-        <button className="button generate" onClick={handleGenerate}>
-          Generate Table
-        </button>
-        <button className="button clear" onClick={handleClearAll}>
-          Clear All
-        </button>
-      </div>
-      
-      <div className="legend">
-        <div className="legend-title">Keterangan Keyboard :</div>
-        {Object.entries(keyLegend).map(([key, desc]) => (
-          <div key={key} className="legend-item">
-            <strong>{key}</strong> = {desc}
+        <div className="workspace">
+          <div className="workspace-toolbar">
+            <nav className="workspace-nav" aria-label="Tampilan workspace">
+              <button className={`workspace-tab ${activeTab === 'editor' ? 'is-active' : ''}`} aria-current={activeTab === 'editor' ? 'page' : undefined} onClick={() => setActiveTab('editor')}><span className="tab-number">01</span> Kalkulator</button>
+              <button className={`workspace-tab ${activeTab === 'results' ? 'is-active' : ''}`} aria-current={activeTab === 'results' ? 'page' : undefined} disabled={!table} onClick={() => setActiveTab('results')}><span className="tab-number">02</span> Tabel hasil {table && <span className="ready-dot" />}</button>
+            </nav>
+            <span className="workspace-label">WORKSPACE</span>
           </div>
-        ))}
-      </div>
-      
-      {error && ( <div className="error-message">{error}</div> )}
 
-      <div className="table-container base-permutation-table">
-          <h3>Contoh Permutasi Dasar (Variabel)</h3>
-          {(() => {
-            const allVars = ['p', 'q', 'r', 's', 't'];
-            const currentBaseVariables = allVars.slice(0, variableCount);
-            const basePermutations = generatePermutations(currentBaseVariables);
-            const baseRows = basePermutations.map(perm => 
-              currentBaseVariables.map(v => (perm[v] ? 'T' : 'F'))
-            );
+          {activeTab === 'editor' ? (
+            <div className="editor-layout">
+              <section className="editor-panel" aria-labelledby="editor-title">
+                <div className="section-heading"><span className="section-index">01 /</span><h2 id="editor-title">Susun ekspresi</h2></div>
+                <div className="variable-field">
+                  <label htmlFor="variable-count">Jumlah variabel</label>
+                  <select id="variable-count" value={variableCount} onChange={event => { setVariableCount(Number(event.target.value)); invalidate(); }}>
+                    {VARIABLES.map((_, index) => <option key={index} value={index + 1}>{index + 1} variabel ({VARIABLES.slice(0, index + 1).join(', ')})</option>)}
+                  </select>
+                </div>
+                <form onSubmit={addExpression}>
+                  <div className="input-label-row"><label htmlFor="expression">Ekspresi logika</label><span>Enter untuk menambah</span></div>
+                  <div className={`expression-editor ${error ? 'has-error' : ''}`}>
+                    <span className="expression-prompt" aria-hidden="true">ƒ</span>
+                    <input ref={inputRef} id="expression" value={draft} onChange={event => updateDraft(event.target.value)} placeholder="p & (q ∨ ¬p)" maxLength={200} autoComplete="off" autoCapitalize="off" spellCheck={false} aria-invalid={Boolean(error)} aria-describedby={`expression-hint${error ? ' expression-error' : ''}`} />
+                    {draft && <button type="button" className="icon-button" aria-label="Kosongkan ekspresi" onClick={() => { updateDraft(''); inputRef.current.focus(); }}><Icon name="close" size={18} /></button>}
+                  </div>
+                  <p className="field-hint" id="expression-hint">Ketik langsung atau gunakan keyboard di bawah.</p>
+                  <Keyboard variables={variables} onKeyClick={insertKey} />
+                  <button type="submit" className="button button-secondary add-button" disabled={!draft.trim()}><Icon name="plus" size={18} /> Tambah ekspresi <span className="key-hint" aria-hidden="true">↵</span></button>
+                </form>
+                <div className="feedback" aria-live="polite" aria-atomic="true">
+                  {error && <p className="error-message" id="expression-error" role="alert">{error}</p>}
+                  {notice && <p className="notice-message"><Icon name="check" size={16} />{notice}</p>}
+                </div>
+                <div className="examples"><span>Coba contoh</span>{['p & q', 'p → q', 'p ∨ ¬p'].map(expression => <button key={expression} onClick={() => { updateDraft(expression); inputRef.current.focus(); }}>{expression}</button>)}</div>
+              </section>
 
-            return (
-              <table className="results-table">
-                <thead>
-                  <tr>{currentBaseVariables.map((h, i) => (<th key={i}>{h}</th>))}</tr>
-                </thead>
-                <tbody>
-                  {baseRows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {row.map((cell, cellIndex) => (
-                        <td key={cellIndex}>{cell}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            );
-          })()}
+              <section className="queue-panel" aria-labelledby="queue-title">
+                <div className="section-heading"><span className="section-index">02 /</span><h2 id="queue-title">Daftar ekspresi</h2><span className="count-badge" aria-label={`${expressions.length} ekspresi`}>{expressions.length}</span></div>
+                <p className="section-description">Setiap ekspresi menjadi satu kolom hasil.</p>
+                {expressions.length ? <ol className="expression-list">{expressions.map((expression, index) => (
+                  <li key={`${index}-${expression}`}><span className="expression-number">{String(index + 1).padStart(2, '0')}</span><code>{expression}</code><button className="icon-button remove-button" aria-label={`Hapus ekspresi ${index + 1}: ${expression}`} onClick={() => { setExpressions(expressions.filter((_, i) => i !== index)); invalidate(); }}><Icon name="close" size={17} /></button></li>
+                ))}</ol> : <div className="empty-state"><span className="empty-icon"><Icon name="grid" size={28} /></span><h3>Mulai dari satu ekspresi.</h3><p>Tambahkan ekspresimu di sebelah,<br />atau pilih contoh untuk mencoba.</p><span className="empty-formula" aria-hidden="true">p <span>→</span> q</span></div>}
+                <div className="queue-note"><Icon name="help" size={17} /><p>Belum menekan Tambah? Ekspresi di editor tetap disertakan saat membuat tabel.</p></div>
+              </section>
+            </div>
+          ) : (
+            <section className="results-panel" aria-labelledby="results-title">
+              <div className="results-heading"><div><div className="eyebrow">OUTPUT / TABEL KEBENARAN</div><h2 id="results-title" ref={resultHeadingRef} tabIndex={-1}>Hasil evaluasi</h2><p>{table.variables.length} variabel · {table.rows.length} kombinasi · {table.expressions.length} ekspresi</p></div><button className="button button-secondary" onClick={downloadCsv}><Icon name="download" size={18} /> Unduh CSV</button></div>
+              <div className="table-legend"><span><b className="truth-value is-true">T</b> Benar</span><span><b className="truth-value is-false">F</b> Salah</span><span className="scroll-hint">Geser tabel untuk melihat semua kolom</span></div>
+              <div className="table-scroll" role="region" aria-label="Tabel kebenaran, dapat digulir" tabIndex={0}>
+                <table className="results-table"><caption className="sr-only">Tabel kebenaran untuk {table.expressions.join(', ')}. T berarti benar, F berarti salah.</caption><thead><tr><th scope="col" className="row-number">No.</th>{table.variables.map(variable => <th key={variable} scope="col">{variable}</th>)}{table.expressions.map((expression, index) => <th key={index} scope="col" className="result-column">{expression}</th>)}</tr></thead><tbody>{table.rows.map((row, index) => <tr key={index}><th scope="row" className="row-number">{String(index + 1).padStart(2, '0')}</th>{row.map((value, column) => <td key={column} className={column >= table.variables.length ? 'result-column' : ''}><span className={`truth-value ${value ? 'is-true' : 'is-false'}`}>{value ? 'T' : 'F'}</span></td>)}</tr>)}</tbody></table>
+              </div>
+              <div className="classification-list"><h3>Kesimpulan ekspresi</h3>{table.expressions.map((expression, index) => <div key={index}><code>{expression}</code><span className={`classification ${table.classifications[index].toLowerCase()}`}>{table.classifications[index]}</span></div>)}<p>Tautologi: selalu benar. Kontradiksi: selalu salah. Kontingensi: bergantung pada nilai variabel.</p></div>
+            </section>
+          )}
+
+          <div className="workspace-footer"><button className="button button-quiet reset-button" onClick={reset} disabled={!draft && !expressions.length}><Icon name="reset" size={17} /> Mulai ulang</button>{activeTab === 'editor' ? <button className="button button-primary" onClick={generate} disabled={!draft.trim() && !expressions.length}>Buat tabel kebenaran <Icon name="arrow" size={19} /></button> : <button className="button button-primary" onClick={() => setActiveTab('editor')}>Edit ekspresi <Icon name="plus" size={18} /></button>}</div>
         </div>
-      <footer className="app-footer">
-        Tools ini dibuat oleh <a href="https://github.com/prastianhdd/" target="_blank" rel="noopener noreferrer">PrastianHD</a>
-      </footer> 
+
+        <section className="operator-reference" aria-labelledby="reference-title"><div><h2 id="reference-title">Referensi operator</h2><p>Operator logika proposisional.</p></div><dl>{OPERATORS.map(([symbol, name]) => <div key={symbol}><dt>{symbol}</dt><dd>{name === 'Disjungsi eksklusif' ? 'XOR' : name}</dd></div>)}</dl></section>
+      </main>
+
+      <footer className="site-footer"><span>Kalkulator tabel kebenaran online.</span><a href="https://github.com/prastianhdd/" rel="author noopener noreferrer" target="_blank">Dibuat oleh Prastian Hidayat <span aria-hidden="true">↗</span></a></footer>
+
+      <dialog ref={dialogRef} className="help-dialog" aria-labelledby="help-title" onCancel={() => setShowHelp(false)} onClose={() => setShowHelp(false)} onClick={event => { if (event.target === event.currentTarget) setShowHelp(false); }}>
+        <div className="help-content"><div className="dialog-heading"><div><div className="eyebrow">PANDUAN SINGKAT</div><h2 id="help-title">Kenali logikamu.</h2></div><button className="icon-button" autoFocus aria-label="Tutup panduan" onClick={() => setShowHelp(false)}><Icon name="close" /></button></div><ol className="usage-steps"><li>Pilih 1–5 variabel yang ingin digunakan.</li><li>Tulis ekspresi, lalu tekan Enter atau Tambah ekspresi.</li><li>Tekan Buat tabel kebenaran untuk melihat semua kombinasi.</li></ol><dl className="help-operators">{OPERATORS.map(([symbol, name, description]) => <div key={symbol}><dt>{symbol}</dt><dd><strong>{name}</strong><span>{description}</span></dd></div>)}</dl><p className="field-hint">Alias keyboard: ! atau ~ untuk ¬, | atau V untuk ∨, -&gt; untuk →, &lt;-&gt; untuk ↔. Gunakan kurung untuk mengatur urutan.</p><p className="field-hint">Prioritas: ¬, &amp;, ⊕, ∨, →, ↔. Implikasi dikelompokkan dari kanan.</p><button className="button button-primary" onClick={() => setShowHelp(false)}>Mengerti, mulai eksplorasi <Icon name="arrow" size={18} /></button></div>
+      </dialog>
     </div>
   );
 }

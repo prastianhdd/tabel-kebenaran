@@ -1,13 +1,87 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/calculator.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tabel Kebenaran</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#101c32" />
+    <title>Kalkulator Tabel Kebenaran Online | Prastian Hidayat</title>
+    <meta name="description" content="Kalkulator tabel kebenaran online karya Prastian Hidayat. Hitung ekspresi logika 1–5 variabel, analisis tautologi dan kontradiksi, lalu unduh hasil CSV." />
+    <meta name="author" content="Prastian Hidayat" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://tabellogika.vercel.app/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="id_ID" />
+    <meta property="og:site_name" content="Tabel Logika" />
+    <meta property="og:title" content="Kalkulator Tabel Kebenaran Online | Prastian Hidayat" />
+    <meta property="og:description" content="Hitung ekspresi logika 1–5 variabel, analisis tautologi dan kontradiksi, lalu unduh tabel CSV. Dibuat oleh Prastian Hidayat." />
+    <meta property="og:url" content="https://tabellogika.vercel.app/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Kalkulator Tabel Kebenaran Online | Prastian Hidayat" />
+    <meta name="twitter:description" content="Kalkulator logika proposisional karya Prastian Hidayat. Buat tabel kebenaran, periksa hasil ekspresi, dan unduh CSV." />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Person",
+            "@id": "https://tabellogika.vercel.app/#author",
+            "name": "Prastian Hidayat",
+            "alternateName": "PrastianHD",
+            "url": "https://github.com/prastianhdd/",
+            "sameAs": ["https://github.com/prastianhdd/"]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://tabellogika.vercel.app/#website",
+            "url": "https://tabellogika.vercel.app/",
+            "name": "Tabel Logika",
+            "inLanguage": "id",
+            "author": { "@id": "https://tabellogika.vercel.app/#author" }
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://tabellogika.vercel.app/#webpage",
+            "url": "https://tabellogika.vercel.app/",
+            "name": "Kalkulator Tabel Kebenaran Online | Prastian Hidayat",
+            "description": "Kalkulator tabel kebenaran online karya Prastian Hidayat untuk mengevaluasi ekspresi logika proposisional dengan 1–5 variabel.",
+            "inLanguage": "id",
+            "isPartOf": { "@id": "https://tabellogika.vercel.app/#website" },
+            "author": { "@id": "https://tabellogika.vercel.app/#author" },
+            "mainEntity": { "@id": "https://tabellogika.vercel.app/#calculator" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://tabellogika.vercel.app/#calculator",
+            "name": "Kalkulator Tabel Kebenaran",
+            "url": "https://tabellogika.vercel.app/",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Memerlukan JavaScript dan browser modern.",
+            "inLanguage": "id",
+            "isAccessibleForFree": true,
+            "author": { "@id": "https://tabellogika.vercel.app/#author" },
+            "featureList": [
+              "Tabel kebenaran 1–5 variabel",
+              "Operator AND, OR, NOT, XOR, implikasi, dan biimplikasi",
+              "Evaluasi beberapa ekspresi sekaligus",
+              "Klasifikasi tautologi, kontradiksi, dan kontingensi",
+              "Unduh hasil CSV"
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main>
+        <h1>Kalkulator Tabel Kebenaran Online</h1>
+        <p>Kalkulator logika proposisional karya <a href="https://github.com/prastianhdd/" rel="author">Prastian Hidayat</a>.</p>
+        <p>Buat tabel kebenaran untuk 1–5 variabel dengan operator AND, OR, NOT, XOR, implikasi, dan biimplikasi. Evaluasi beberapa ekspresi sekaligus, identifikasi tautologi, kontradiksi, serta kontingensi, lalu unduh hasil dalam format CSV.</p>
+        <noscript><p>Aktifkan JavaScript untuk menggunakan kalkulator interaktif.</p></noscript>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

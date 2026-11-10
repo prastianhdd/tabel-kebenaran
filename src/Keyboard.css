@@ -1,55 +1,25 @@
-/* src/Keyboard.css */
-
-.keyboard-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px; 
-  margin-bottom: 20px;
-  margin-top: 20px;
-}
-
-.keyboard-grid {
-  display: grid;
-  gap: 8px; 
-}
-
-.variables-grid {
-  grid-template-columns: repeat(5, 1fr); 
-}
-
-.symbols-grid {
-  grid-template-columns: repeat(8, 1fr); /
-}
-
-.keyboard-key {
-  padding: 12px 10px;
-  font-size: 16px;
-  border: 1px solid #d0d7e0;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: center;
-  background-color: #ffffff;
-  color: #334155;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-}
-
-.keyboard-key:hover {
-  background-color: #f7f9fc;
-  transform: translateY(-2px); 
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-}
-
-.keyboard-key:active {
-  transform: translateY(0px); 
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-}
-
-.keyboard-key.symbol {
-  background-color: #f1f5f9; 
-  font-weight: bold;
-  font-size: 18px; 
-}
-
-.keyboard-key.symbol:hover {
-  background-color: #e2e8f0;
+.keyboard { margin-top: 20px; }
+.keyboard-variables { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.keyboard-label { color: var(--muted); font: 700 11px var(--mono); letter-spacing: .6px; }
+.variable-keys { display: flex; align-items: center; flex: 1; gap: 7px; }
+.keyboard-key { display: flex; align-items: center; justify-content: center; background: var(--surface); color: var(--ink); border: 1px solid #7b8ba3; border-bottom-width: 3px; border-radius: 4px; min-height: 48px; padding: 7px; }
+.keyboard-key:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.keyboard-key:active { background: #dce8ff; border-bottom-width: 1px; }
+.variable-key { flex: 1; max-width: 54px; font: 700 20px var(--mono); background: var(--accent); color: white; border-color: var(--accent-hover); }
+.variable-key:hover { background: var(--accent-hover); color: white; }
+.backspace-key { min-width: 48px; color: var(--false); border-color: #aa6476; }
+.backspace-key:hover { color: var(--false); background: var(--danger-bg); border-color: var(--false); }
+.operator-keys { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.operator-key { flex-direction: column; gap: 5px; min-height: 65px; }
+.operator-key > span { font: 700 24px var(--mono); }
+.operator-key > small { font-size: 11px; color: var(--muted); }
+@media (max-width: 700px) {
+  .keyboard-variables { gap: 8px; flex-wrap: wrap; }
+  .keyboard-label { flex-basis: 100%; font-size: 10px; letter-spacing: 0; }
+  .variable-keys { gap: 5px; }
+  .variable-key { max-width: none; min-width: 0; font-size: 18px; }
+  .backspace-key { min-width: 44px; }
+  .operator-keys { gap: 7px; }
+  .operator-key { min-height: 62px; }
+  .operator-key > small { font-size: 10px; }
 }
